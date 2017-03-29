@@ -41,8 +41,10 @@
 #define REVERSE_SPEED     200 // 0 is stopped, 400 is full speed
 #define TURN_SPEED        200
 #define FORWARD_SPEED     400
-#define IRpin_PIN = PIND
-#define IRpin_2
+#define irLedPin
+#define irSensorPin
+
+int irRead(int readPin, int triggerPin);
 
 #define NUM_SENSORS 6
 unsigned int sensor_values[NUM_SENSORS];
@@ -66,16 +68,24 @@ NewServo myServo;
 Pushbutton button(ZUMO_BUTTON); 
 
 int degreesServo = 0;
-int degreesStep = 0;
+int degreesStep = 5;
 
 PLab_ZumoMotors plab_Motors;
 
 void setup() {
+  pinMode(irSensorPin, INPUT);
+  pinMode(irLedPin, OUTPUT);
+  Serial.begin(9600); 
+  // prints title with ending line break 
+  Serial.println("Program Starting"); 
+  // wait for the long string to be sent 
+  delay(100);
+  
   sensors.init();
   Serial.begin(9600);
   pinMode(ledPin,OUTPUT);
   myServo.attach(servoPin); 
-  myServo.write(52);
+  myServo.write(90);
   button.waitForButton(); // start when button pressed
 }
 
@@ -83,10 +93,10 @@ void stepServo() {
    degreesServo = degreesServo + degreesStep;
    if (degreesServo > 180) {
        degreesStep = -degreesStep;
-       degreesServo = 52;
+       degreesServo = 180;
    } else if (degreesServo < 0) {
        degreesStep = -degreesStep;
-       degreesServo = 52;
+       degreesServo = 0;
    } 
    myServo.write(degreesServo);
 }
@@ -105,16 +115,33 @@ float sonarDistance() {
    return distance;
 }
 
+int irRead(int readPin, int triggerPin)
+{
+  int halfPeriod = 13; //one period at 38.5khZ is aproximately 26 microseconds
+  int cycles = 38; //26 microseconds * 38 is more or less 1 millisecond
+  int i;
+  for (i=0; i <=cycles; i++)
+  {
+    digitalWrite(triggerPin, HIGH); 
+    delayMicroseconds(halfPeriod);
+    digitalWrite(triggerPin, LOW); 
+    delayMicroseconds(halfPeriod - 1);     // - 1 to make up for digitaWrite overhead    
+  }
+  return digitalRead(readPin);
+}
+
 void loop() {
    stepServo();
+   Serial.println(irRead(irSensorPin, irLedPin)); //display the results
+   delay(10); //wait for the string to be sent
    int distance = sonarDistance();
    if (distance > 0) {
       if (degreesServo > 90) {
-         plab_Motors.turnLeft(FORWARD_SPEED,0);
+         plab_Motors.turnLeft(FORWARD_SPEED,degreesServo-90);
       } else if (degreesServo < 90) {
-        plab_Motors.turnRight(FORWARD_SPEED,0);
+        plab_Motors.turnRight(FORWARD_SPEED,90-degreesServo);
       };
-      degreesServo = 52;
+      degreesServo = 90;
       myServo.write(degreesServo);
   //    plab_Motors.forward(FORWARD_SPEED, distance-5);
     };
